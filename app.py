@@ -10,10 +10,10 @@ import os
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # AWS S3 credentials and endpoint
-aws_access_key = 'FOO'
-aws_secret_access_key = 'TBAR'
+aws_access_key = ''
+aws_secret_access_key = ''
 endpoint_url = 'https://s3.amazonaws.com'
-bucket_name = 'test'
+bucket_name = 'breaker19er-test'
 
 # Initialize S3 client
 s3 = boto3.client(

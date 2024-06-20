@@ -1,0 +1,23 @@
+{
+    "dev": {
+        "host": "dev_host",
+        "port": 3306,
+        "user": "dev_user",
+        "password": "dev_pass",
+        "database": "dev_db"
+    },
+    "test": {
+        "host": "test_host",
+        "port": 3306,
+        "user": "test_user",
+        "password": "test_pass",
+        "database": "test_db"
+    },
+    "prod": {
+        "host": "prod_host",
+        "port": 3306,
+        "user": "prod_user",
+        "password": "prod_pass",
+        "database": "prod_db"
+    }
+}
