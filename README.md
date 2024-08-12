@@ -1,3 +1,4 @@
+```
 import jakarta.persistence.*;
 import java.io.Serializable;
 
@@ -159,3 +160,4 @@ public class UIConfigController {
 
 
 ------------
+```
