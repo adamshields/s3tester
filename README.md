@@ -1,136 +1,90 @@
+
 ```
-import { NgModule } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterModule, Routes } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatAdminDashboardComponent } from './mat-admin-dashboard.component';
-import { MatAdminUsersComponent } from './mat-admin-users.component';
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, firstValueFrom } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 
-const routes: Routes = [
-  { path: '', component: MatAdminDashboardComponent },
-  { path: 'users', component: MatAdminUsersComponent }
-];
-
-@NgModule({
-  declarations: [MatAdminDashboardComponent, MatAdminUsersComponent],
-  imports: [
-    CommonModule,
-    MatButtonModule,
-    MatToolbarModule,
-    RouterModule.forChild(routes)
-  ]
+@Injectable({
+  providedIn: 'root'
 })
-export class MatAdminModule { }
+export class ConfigService {
+  private API_SPRING_URL = environment.API_SPRING_URL;
+  private endPoint = '/ui-config/ui-settings';
 
+  private configSubject = new BehaviorSubject<any>(null);
+  public config$ = this.configSubject.asObservable();
 
+  constructor(private http: HttpClient) {}
 
-import { Component } from '@angular/core';
+  public async loadConfig() {
+    try {
+      console.log('Attempting to load configuration from /api/ui-config/ui-settings');
+      
+      const config = await firstValueFrom(
+        this.http.get(this.API_SPRING_URL + this.endPoint).pipe(
+          catchError(err => {
+            console.error('Failed to load configuration from server:', err);
 
-@Component({
-  selector: 'app-mat-admin-dashboard',
-  template: `
-    <mat-toolbar color="primary">Material Admin Dashboard</mat-toolbar>
-    <div style="padding: 20px;">
-      <h2>Welcome to Material Admin Dashboard</h2>
-      <button mat-raised-button color="primary" routerLink="users">Go to Users</button>
-    </div>
-  `
-})
-export class MatAdminDashboardComponent { }
+            const cachedConfig = localStorage.getItem('appConfig');
+            if (cachedConfig) {
+              console.log('Using cached configuration:', cachedConfig);
+              return JSON.parse(cachedConfig);
+            } else {
+              console.warn('No cached configuration found.');
+              throw err;
+            }
+          })
+        )
+      );
 
+      // Store processed data once
+      this.setEnvironment(config.configData.env);
+      console.log("Environment set to:", config.configData.env);
 
-import { Component } from '@angular/core';
+      // Store feature flags individually
+      if (config.configData && config.configData.featureFlags) {
+        Object.entries(config.configData.featureFlags).forEach(([key, value]) => {
+          localStorage.setItem(key, JSON.stringify(value));
+        });
+      }
 
-@Component({
-  selector: 'app-mat-admin-users',
-  template: `
-    <mat-toolbar color="primary">Material Admin Users</mat-toolbar>
-    <div style="padding: 20px;">
-      <h2>Material Admin Users List</h2>
-      <button mat-raised-button color="primary" routerLink="..">Back to Dashboard</button>
-    </div>
-  `
-})
-export class MatAdminUsersComponent { }
+      // Optionally, store the whole config if needed for other purposes
+      localStorage.setItem('appConfig', JSON.stringify(config));
 
-
-import { NgModule } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterModule, Routes } from '@angular/router';
-import { ButtonModule } from '@syncfusion/ej2-angular-buttons';
-import { SyncAdminDashboardComponent } from './sync-admin-dashboard.component';
-import { SyncAdminUsersComponent } from './sync-admin-users.component';
-
-const routes: Routes = [
-  { path: '', component: SyncAdminDashboardComponent },
-  { path: 'users', component: SyncAdminUsersComponent }
-];
-
-@NgModule({
-  declarations: [SyncAdminDashboardComponent, SyncAdminUsersComponent],
-  imports: [
-    CommonModule,
-    ButtonModule,
-    RouterModule.forChild(routes)
-  ]
-})
-export class SyncAdminModule { }
-
-
-
-import { Component } from '@angular/core';
-
-@Component({
-  selector: 'app-sync-admin-dashboard',
-  template: `
-    <div style="background-color: #007bff; color: white; padding: 10px;">Syncfusion Admin Dashboard</div>
-    <div style="padding: 20px;">
-      <h2>Welcome to Syncfusion Admin Dashboard</h2>
-      <ejs-button cssClass="e-primary" routerLink="users">Go to Users</ejs-button>
-    </div>
-  `
-})
-export class SyncAdminDashboardComponent { }
-
-
-import { Component } from '@angular/core';
-
-@Component({
-  selector: 'app-sync-admin-users',
-  template: `
-    <div style="background-color: #007bff; color: white; padding: 10px;">Syncfusion Admin Users</div>
-    <div style="padding: 20px;">
-      <h2>Syncfusion Admin Users List</h2>
-      <ejs-button cssClass="e-primary" routerLink="..">Back to Dashboard</ejs-button>
-    </div>
-  `
-})
-export class SyncAdminUsersComponent { }
-
-
-
-
-import { NgModule, inject } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
-import { ConfigService } from './config.service';
-
-const routes: Routes = [
-  // ... other routes ...
-  {
-    path: 'admin',
-    loadChildren: () => {
-      const configService = inject(ConfigService);
-      return configService.isFeatureEnabled('useMaterialAdmin')
-        ? import('./mat-admin/mat-admin.module').then(m => m.MatAdminModule)
-        : import('./sync-admin/sync-admin.module').then(m => m.SyncAdminModule);
+      this.configSubject.next(config);
+      return config;
+    } catch (err) {
+      console.error('Error during configuration loading:', err);
     }
-  },
-];
+  }
 
-@NgModule({
-  imports: [RouterModule.forRoot(routes)],
-  exports: [RouterModule]
-})
-export class AppRoutingModule { }
+  private setEnvironment(env: string) {
+    if (env) {
+      sessionStorage.setItem("ENV", env);
+      console.log("Environment saved to session storage:", env);
+    } else {
+      console.warn("No environment value provided; session storage not updated.");
+    }
+  }
+
+  public getConfig() {
+    const config = this.configSubject.value;
+    console.log('Current configuration:', config);
+    return config;
+  }
+
+  public isFeatureEnabled(featureName: string): boolean {
+    const config = this.configSubject.getValue();
+
+    if (!config) {
+      // If config doesn't get loaded, return false or default
+      console.warn('Config not loaded when checking for feature flag');
+      return false;
+    }
+
+    return config.configData?.featureFlags?.[featureName] ?? false;
+  }
+}
+
 ```
