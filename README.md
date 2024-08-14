@@ -3,7 +3,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, firstValueFrom } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root'
@@ -12,7 +12,7 @@ export class ConfigService {
   private API_SPRING_URL = environment.API_SPRING_URL;
   private endPoint = '/ui-config/ui-settings';
 
-  private configSubject = new BehaviorSubject<any>(null);
+  private configSubject = new BehaviorSubject<AppConfig | null>(null);
   public config$ = this.configSubject.asObservable();
 
   constructor(private http: HttpClient) {}
@@ -21,15 +21,15 @@ export class ConfigService {
     try {
       console.log('Attempting to load configuration from /api/ui-config/ui-settings');
       
-      const config = await firstValueFrom(
-        this.http.get(this.API_SPRING_URL + this.endPoint).pipe(
+      const config: AppConfig = await firstValueFrom(
+        this.http.get<AppConfig>(this.API_SPRING_URL + this.endPoint).pipe(
           catchError(err => {
             console.error('Failed to load configuration from server:', err);
 
             const cachedConfig = localStorage.getItem('appConfig');
             if (cachedConfig) {
               console.log('Using cached configuration:', cachedConfig);
-              return JSON.parse(cachedConfig);
+              return JSON.parse(cachedConfig) as AppConfig;
             } else {
               console.warn('No cached configuration found.');
               throw err;
@@ -77,14 +77,33 @@ export class ConfigService {
   public isFeatureEnabled(featureName: string): boolean {
     const config = this.configSubject.getValue();
 
-    if (!config) {
-      // If config doesn't get loaded, return false or default
-      console.warn('Config not loaded when checking for feature flag');
+    if (!config || !config.configData || !config.configData.featureFlags) {
+      console.warn('Config or feature flags not loaded when checking for feature flag');
       return false;
     }
 
-    return config.configData?.featureFlags?.[featureName] ?? false;
+    return config.configData.featureFlags[featureName] ?? false;
   }
 }
+
+interface FeatureFlags {
+  useMaterialAdmin: boolean;
+  enableDarkMode: boolean;
+  enableMaterial: boolean;
+  [key: string]: boolean; // To allow additional feature flags
+}
+
+interface ConfigData {
+  env: string;
+  callbackUrl: string;
+  apiBaseUrl: string;
+  featureFlags: FeatureFlags;
+}
+
+interface AppConfig {
+  configName: string;
+  configData: ConfigData;
+}
+
 
 ```
